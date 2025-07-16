@@ -1,11 +1,376 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>パフェ制作Todo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --pink:       #ffffff;
+      --white:      #ffffff;
+      --gray-dark:  #333333;
+      --gray-light: #666666;
+      --accent:     #f8c1d0;
+    }
+    /* ダークモード用変数 */
+    body.dark {
+      --pink:       #1e1e1e;
+      --white:      #2c2c2c;
+      --gray-dark:  #e0e0e0;
+      --gray-light: #aaaaaa;
+      --accent:     #444444;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--pink);
+      color: var(--gray-dark);
+      display: flex;
+      justify-content: center;
+      padding: 16px 0;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .app {
+      width: 100%; max-width: 960px;
+      display: flex; gap: 24px; align-items: flex-start;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 600px) {
+      .app { 
+        flex-direction: column;
+        align-items: stretch; 
+        }
+      .task-list { margin-top: 24px; }
+      #add-step, #add-material { display: inline-block; }
+    }
+
+
+    .task-form,
+    .task-list {
+      flex: 1;
+      min-width: 0; /* 子要素に引っ張られて広がらないように */
+    }
+
+    .task-form {
+      background: var(--accent);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    /* ── タスク一覧にもフォームと同じカードスタイルを適用 ── */
+    .task-list {
+      background: var(--accent);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .task-form h2 { margin: 0 0 12px; font-weight: 500; }
+
+    .field { margin-bottom: 12px; }
+    .field label { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 500; }
+    .field input,
+    .field textarea {
+      width: 100%; padding: 8px 12px; border: none; border-radius: 8px;
+      background: var(--white); font-size: 14px; color: var(--gray-dark);
+      transition: background 0.3s, color 0.3s;
+    }
+    .field textarea { resize: vertical; min-height: 60px; }
+
+    .btn-add {
+      width: 100%; padding: 12px 0; border: none;
+      background: var(--white); border-radius: 8px;
+      font-size: 16px; color: var(--gray-dark); cursor: pointer;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .btn-small {
+      display: inline-block; padding: 4px 8px; background: var(--white);
+      border-radius: 8px; font-size: 14px; color: var(--gray-dark);
+      cursor: pointer; border: none; margin-top: 4px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .step-list { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+    .step-list li {
+      counter-increment: step;
+      display: flex; align-items: flex-start;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+    .step-list li::before {
+      content: counter(step) ".";
+      width: 24px; text-align: right; margin-right: 8px;
+      color: var(--gray-light);
+    }
+    .drag-handle { cursor: grab; margin-right: 8px; font-size: 18px; user-select: none; }
+    .step-input {
+      flex: 1; padding: 8px 12px; border: none; border-radius: 8px;
+      background: var(--white); font-size: 14px; color: var(--gray-dark);
+      white-space: pre-wrap; overflow-wrap: break-word;
+      resize: vertical; min-height: 32px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .del-step {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; color: var(--gray-light); margin-left: 8px;
+    }
+    .del-step:hover { color: #e74c3c; }
+
+    .material-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+    .material-table th,
+    .material-table td { border: none; padding: 4px 8px; }
+    .material-table th { font-size: 14px; color: var(--gray-light); text-align: left; }
+    .material-table td { vertical-align: middle; }
+    .material-table input {
+      width: 100%; padding: 6px 8px; border: none; border-radius: 8px;
+      background: var(--white); font-size: 14px; color: var(--gray-dark);
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .task-list h2 {
+      margin: 0 0 12px; font-weight: 500;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #theme-toggle {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; color: var(--gray-dark);
+      transition: color 0.3s;
+    }
+
+    /* タスクカード */
+    .task-card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+    }
+    body.dark .task-card {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .task-card > div {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2px 0;
+    }
+
+    .task-card label {
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; font-size: 16px;
+    }
+
+    .task-card details {
+      margin: 0;
+      padding: 0;
+      font-size: 14px; line-height: 1.4;
+      word-break: break-word; white-space: pre-wrap;
+      padding-bottom: 4px;
+    }
+    .task-card summary {
+      cursor: pointer; font-weight: 500;
+      margin: 0; padding: 2px 0;
+    }
+    .task-card details p,
+    .task-card details ol,
+    .task-card details ul {
+      margin: 0 0 4px 0;
+      padding: 0;
+    }
+    .task-card details ol,
+    .task-card details ul {
+      padding-left: 16px;
+    }
+
+    .task-card button {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; color: var(--gray-light);
+      transition: color 0.3s;
+    }
+    .sortable-ghost { opacity: 0.4; }
+  </style>
 </head>
 <body>
-    hinako desu
+  <div class="app">
+    <!-- ── タスク追加フォーム ── -->
+    <section class="task-form">
+      <h2>タスクを追加</h2>
+      <div class="field">
+        <label>タスク名</label>
+        <input id="title" type="text" placeholder="例: チーズクリーム作成"/>
+      </div>
+      <div class="field">
+        <label>レシピ工程 <small>Enter×2で追加・≡でドラッグ</small></label>
+        <ul id="step-list" class="step-list">
+          <li>
+            <span class="drag-handle">≡</span>
+            <textarea class="step-input" rows="1" placeholder="工程を入力してEnter"></textarea>
+            <button class="del-step" aria-label="削除">✖️</button>
+          </li>
+        </ul>
+        <button id="add-step" class="btn-small">＋ レシピ工程を追加</button>
+      </div>
+      <div class="field">
+        <label>材料リスト <small>Enter×2で追加・ドラッグOK</small></label>
+        <table class="material-table">
+          <thead>
+            <tr><th>材料</th><th>分量</th><th></th></tr>
+          </thead>
+          <tbody id="material-list"></tbody>
+        </table>
+        <button id="add-material" class="btn-small">＋ 材料を追加</button>
+      </div>
+      <div class="field">
+        <label>メモ</label>
+        <textarea id="memo" placeholder="補足など…"></textarea>
+      </div>
+      <button id="add-task" class="btn-add" type="button">＋ タスクを追加</button>
+    </section>
+
+    <!-- ── タスク一覧 ── -->
+    <section class="task-list">
+      <h2>
+        タスク一覧
+        <button id="theme-toggle" aria-label="テーマ切り替え">🌙</button>
+      </h2>
+    </section>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+  <script>
+    let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const matBody = document.getElementById('material-list');
+    function addMatRow(name='', qty='') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input class="material-name" type="text" value="${name}" placeholder="材料"/></td>
+        <td><input class="material-quantity" type="text" value="${qty}" placeholder="分量"/></td>
+        <td><button class="del-step" aria-label="削除">✖️</button></td>`;
+      matBody.appendChild(tr);
+    }
+    addMatRow();
+
+    function render() {
+      const container = document.querySelector('.task-list');
+      container.querySelectorAll('.task-card').forEach(el => el.remove());
+      tasks.forEach((t, i) => {
+        const card = document.createElement('div');
+        card.className = 'task-card';
+        card.innerHTML = `
+          <div>
+            <label>
+              <input type="checkbox" ${t.done ? 'checked' : ''} data-index="${i}"/>
+              ${t.title}
+            </label>
+            <button data-del="${i}" aria-label="削除">✖️</button>
+          </div>
+          <details>
+            <summary>詳細を表示</summary>
+            <p><strong>工程:</strong></p>
+            <ol>${t.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+            <p><strong>材料:</strong></p>
+            <ul>${t.materials.map(m => `<li>${m.name} — ${m.quantity}</li>`).join('')}</ul>
+            <p><strong>メモ:</strong> ${t.memo || '—'}</p>
+          </details>`;
+        container.appendChild(card);
+      });
+    }
+    function save() { localStorage.setItem('tasks', JSON.stringify(tasks)); }
+
+    Sortable.create(document.getElementById('step-list'), {
+      animation: 120,
+      ghostClass: 'sortable-ghost',
+      handle: '.drag-handle'
+    });
+    Sortable.create(matBody, {
+      animation: 120,
+      ghostClass: 'sortable-ghost'
+    });
+
+    document.getElementById('add-step').addEventListener('click', () => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="drag-handle">≡</span>
+        <textarea class="step-input" rows="1" placeholder="工程を入力してEnter"></textarea>
+        <button class="del-step" aria-label="削除">✖️</button>`;
+      document.getElementById('step-list').appendChild(li);
+      li.querySelector('textarea').focus();
+    });
+    document.getElementById('step-list').addEventListener('keydown', e => {
+      if (!e.target.classList.contains('step-input') || e.key !== 'Enter') return;
+      const inputs = document.querySelectorAll('.step-input');
+      if (e.target !== inputs[inputs.length - 1]) return;
+      e.target.enterCount = (e.target.enterCount || 0) + 1;
+      if (e.target.enterCount < 2) return;
+      e.preventDefault(); e.target.enterCount = 0;
+      document.getElementById('add-step').click();
+    });
+    document.getElementById('step-list').addEventListener('click', e => {
+      if (e.target.classList.contains('del-step')) e.target.closest('li').remove();
+    });
+
+    document.getElementById('add-material').addEventListener('click', () => addMatRow());
+    matBody.addEventListener('keydown', e => {
+      if (!e.target.matches('.material-name, .material-quantity') || e.key !== 'Enter') return;
+      const rows = matBody.querySelectorAll('tr');
+      if (!rows[rows.length - 1].contains(e.target)) return;
+      e.target.enterCount = (e.target.enterCount || 0) + 1;
+      if (e.target.enterCount < 2) return;
+      e.preventDefault(); e.target.enterCount = 0;
+      addMatRow();
+      matBody.querySelector('tr:last-child input').focus();
+    });
+    matBody.addEventListener('click', e => {
+      if (e.target.classList.contains('del-step')) e.target.closest('tr').remove();
+    });
+
+    document.getElementById('add-task').addEventListener('click', e => {
+      e.preventDefault();
+      const title = document.getElementById('title').value.trim();
+      if (!title) { alert('タスク名を入力してください'); return; }
+      const steps = [...document.querySelectorAll('.step-input')]
+        .map(i => i.value.trim()).filter(v => v);
+      const materials = [...matBody.querySelectorAll('tr')]
+        .map(tr => ({
+          name: tr.querySelector('.material-name').value.trim(),
+          quantity: tr.querySelector('.material-quantity').value.trim()
+        }))
+        .filter(m => m.name);
+      const memo = document.getElementById('memo').value.trim();
+      tasks.push({ title, steps, materials, memo, done: false });
+      save(); render();
+      document.getElementById('title').value = '';
+      document.getElementById('memo').value = '';
+      document.getElementById('step-list').innerHTML = `
+        <li>
+          <span class="drag-handle">≡</span>
+          <textarea class="step-input" rows="1" placeholder="工程を入力してEnter"></textarea>
+          <button class="del-step" aria-label="削除">✖️</button>
+        </li>`;
+      matBody.innerHTML = ''; addMatRow();
+    });
+
+    document.querySelector('.task-list').addEventListener('click', e => {
+      if (e.target.matches('input[type=checkbox]')) {
+        tasks[e.target.dataset.index].done = e.target.checked;
+        save(); render();
+      }
+      if (e.target.dataset.del != null) {
+        tasks.splice(e.target.dataset.del, 1);
+        save(); render();
+      }
+    });
+
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      themeToggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+    });
+
+    render();
+  </script>
 </body>
 </html>
